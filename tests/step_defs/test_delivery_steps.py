@@ -1,36 +1,28 @@
-import json
 import time
-import uuid
 
-import pytest
-from pytest_bdd import parsers, scenario, scenarios, given, when, then
+from pytest_bdd import parsers, scenarios, when, then
 
 from app.models import Payment
 from tests.fixtures.payloads import make_webhook_payload
-from tests.helpers.signing import signed_headers
-from tests.step_defs.common_steps import (
-    WEBHOOK_SECRET,
-    WEBHOOK_URL,
-    _post_webhook,
-    create_payment,
-    create_n_payments,
-    check_status_code,
-    check_not_5xx,
-    all_responses_status,
-)
+from tests.step_defs.common_steps import _post_webhook
 
 scenarios("delivery.feature")
 
 
-@pytest.fixture
-def context():
-    return {}
+# Each event type requires the payment to be in a specific state first
+_PREREQUISITE_STATUS = {
+    "payment.authorized": "pending",
+    "payment.captured": "authorized",
+    "payment.declined": "pending",
+    "payment.settled": "captured",
+    "payment.refunded": "captured",
+    "payment.chargeback": "settled",
+}
 
 
-@when('I send a valid "{event_type}" webhook for payment "pay_001"')
+@when(parsers.parse('I send a valid "{event_type}" webhook for payment "pay_001"'))
 def send_valid_webhook(event_type, client, context, db_session):
-    # For the outline, each row gets fresh payment in pending status
-    # Ensure pay_001 is in a state that accepts the event
+    prereq = _PREREQUISITE_STATUS.get(event_type, "pending")
     payment = db_session.get(Payment, "pay_001")
     if payment is None:
         payment = Payment(
@@ -38,13 +30,11 @@ def send_valid_webhook(event_type, client, context, db_session):
             merchant_id="merchant_test",
             amount=10000,
             currency="USD",
-            status="pending",
+            status=prereq,
         )
         db_session.add(payment)
-        db_session.commit()
-
-    # Reset to pending so each outline row is independent
-    payment.status = "pending"
+    else:
+        payment.status = prereq
     db_session.commit()
 
     payload = make_webhook_payload(event_type=event_type, payment_id="pay_001")

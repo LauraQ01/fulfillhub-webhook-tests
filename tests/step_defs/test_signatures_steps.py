@@ -1,27 +1,15 @@
 import inspect
 import json
-import time
 
-import pytest
-from pytest_bdd import given, scenarios, then, when
+from pytest_bdd import parsers, scenarios, then, when
 
 from app import signature as sig_module
 from app.signature import SIGNATURE_HEADER, TIMESTAMP_HEADER
 from tests.fixtures.payloads import make_webhook_payload
 from tests.helpers.signing import signed_headers, tampered_headers
-from tests.step_defs.common_steps import (
-    WEBHOOK_SECRET,
-    WEBHOOK_URL,
-    create_payment,
-    check_status_code,
-)
+from tests.step_defs.common_steps import WEBHOOK_SECRET, WEBHOOK_URL
 
 scenarios("signatures.feature")
-
-
-@pytest.fixture
-def context():
-    return {}
 
 
 def _post_raw(client, body: bytes, headers: dict) -> object:
@@ -55,14 +43,13 @@ def send_tampered_body(client, context):
     payload = make_webhook_payload(event_type="payment.authorized", payment_id="pay_001")
     original_body = json.dumps(payload).encode()
     headers = tampered_headers(secret=WEBHOOK_SECRET, original_body=original_body)
-    # Modify the body after signing
     payload["event_type"] = "payment.captured"
     tampered_body = json.dumps(payload).encode()
     response = _post_raw(client, tampered_body, headers)
     context["response"] = response
 
 
-@when('I send a "payment.authorized" webhook with "{header_scenario}"')
+@when(parsers.parse('I send a "payment.authorized" webhook with "{header_scenario}"'))
 def send_with_header_scenario(header_scenario, client, context):
     payload = make_webhook_payload(event_type="payment.authorized", payment_id="pay_001")
     body = json.dumps(payload).encode()
@@ -99,7 +86,7 @@ def send_valid_aged_sig(client, context):
 
 
 @then("the signature verification implementation should use hmac.compare_digest")
-def check_uses_compare_digest(_):
+def check_uses_compare_digest():
     source = inspect.getsource(sig_module)
     assert "hmac.compare_digest" in source, (
         "verify_signature does not use hmac.compare_digest"

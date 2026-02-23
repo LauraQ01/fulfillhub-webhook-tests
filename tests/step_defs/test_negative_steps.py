@@ -1,25 +1,12 @@
 import json
 
-import pytest
-from pytest_bdd import given, scenarios, then, when
+from pytest_bdd import parsers, scenarios, then, when
 
 from tests.fixtures.payloads import make_webhook_payload
 from tests.helpers.signing import signed_headers
-from tests.step_defs.common_steps import (
-    WEBHOOK_SECRET,
-    WEBHOOK_URL,
-    _post_webhook,
-    create_payment,
-    check_status_code,
-    check_not_5xx,
-)
+from tests.step_defs.common_steps import WEBHOOK_SECRET, WEBHOOK_URL, _post_webhook
 
 scenarios("negative.feature")
-
-
-@pytest.fixture
-def context():
-    return {}
 
 
 def _post_raw(client, body: bytes, headers: dict) -> object:
@@ -30,7 +17,7 @@ def _post_raw(client, body: bytes, headers: dict) -> object:
     )
 
 
-@when('I send a "payment.authorized" webhook for payment "{pid}" without the "{field}" field')
+@when(parsers.parse('I send a "payment.authorized" webhook for payment "{pid}" without the "{field}" field'))
 def send_missing_field(pid, field, client, context):
     payload = make_webhook_payload(event_type="payment.authorized", payment_id=pid)
 
@@ -51,7 +38,7 @@ def send_missing_field(pid, field, client, context):
     context["response"] = response
 
 
-@when('I send a webhook with field "{field}" set to a "{wrong_type}" value')
+@when(parsers.parse('I send a webhook with field "{field}" set to a "{wrong_type}" value'))
 def send_wrong_type(field, wrong_type, client, context):
     payload = make_webhook_payload(event_type="payment.authorized", payment_id="pay_001")
 
@@ -66,7 +53,7 @@ def send_wrong_type(field, wrong_type, client, context):
     context["response"] = response
 
 
-@when('I send a webhook with amount value "{amount_value}" for payment "pay_001"')
+@when(parsers.parse('I send a webhook with amount value "{amount_value}" for payment "pay_001"'))
 def send_invalid_amount(amount_value, client, context):
     payload = make_webhook_payload(event_type="payment.authorized", payment_id="pay_001")
     payload["data"]["amount"] = int(amount_value)
@@ -76,7 +63,7 @@ def send_invalid_amount(amount_value, client, context):
     context["response"] = response
 
 
-@when('I send a webhook with payment_id set to "\'; DROP TABLE payments; --"')
+@when("I send a webhook with payment_id set to \"'; DROP TABLE payments; --\"")
 def send_sql_injection(client, context):
     payload = make_webhook_payload(
         event_type="payment.authorized",
@@ -122,7 +109,7 @@ def send_deeply_nested(client, context):
     context["response"] = response
 
 
-@when('I send a request with a "{body_description}" as the body')
+@when(parsers.parse('I send a request with a "{body_description}" as the body'))
 def send_invalid_body(body_description, client, context):
     ts = __import__("time").time()
     from app.signature import compute_signature, SIGNATURE_HEADER, TIMESTAMP_HEADER
@@ -158,7 +145,7 @@ def send_unicode(client, context):
     payload = make_webhook_payload(
         event_type="payment.authorized",
         payment_id="pay_001",
-        merchant_id="商店🌟emoji_merchant",
+        merchant_id="\u5546\u5e97\U0001f31femoji_merchant",
     )
     response = _post_webhook(client, payload)
     context["response"] = response

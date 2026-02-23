@@ -1,11 +1,11 @@
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, StrictStr, field_validator
 
 
 class PaymentData(BaseModel):
-    payment_id: str
-    merchant_id: str
+    payment_id: StrictStr
+    merchant_id: StrictStr
     amount: int = Field(..., ge=0, le=999999999)
-    currency: str
+    currency: StrictStr
 
     @field_validator("amount")
     @classmethod
@@ -16,6 +16,6 @@ class PaymentData(BaseModel):
 
 
 class WebhookPayload(BaseModel):
-    webhook_id: str
-    event_type: str
+    webhook_id: StrictStr
+    event_type: StrictStr
     data: PaymentData

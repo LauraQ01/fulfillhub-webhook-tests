@@ -22,6 +22,9 @@ ALL_VALID_EVENTS: set[str] = {
     event for transitions in TRANSITIONS.values() for event in transitions
 }
 
+# Terminal states: no further transitions possible
+TERMINAL_STATES: set[str] = {"declined", "refunded", "chargebacked"}
+
 
 class InvalidTransitionError(Exception):
     """Event type is not valid in any state."""
@@ -36,12 +39,18 @@ def apply_transition(current_status: str, event_type: str) -> str:
     Apply a state transition.
 
     Returns the new status if transition is valid.
+    Raises InvalidTransitionError if event_type is not valid in any state,
+      or if the current state is terminal.
     Raises OutOfOrderEventError if event_type is valid globally but not for current_status.
-    Raises InvalidTransitionError if event_type is not valid in any state.
     """
     if event_type not in ALL_VALID_EVENTS:
         raise InvalidTransitionError(
             f"Event type '{event_type}' is not a valid event in any state."
+        )
+
+    if current_status in TERMINAL_STATES:
+        raise InvalidTransitionError(
+            f"Payment in terminal state '{current_status}' cannot accept any events."
         )
 
     state_transitions = TRANSITIONS.get(current_status, {})

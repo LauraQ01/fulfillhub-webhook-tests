@@ -1,29 +1,17 @@
 import json
 import time
-import uuid
+import threading
 
 import pytest
-from pytest_bdd import given, scenarios, then, when
+from pytest_bdd import scenarios, then, when
 
 from tests.fixtures.payloads import make_webhook_payload
-from tests.helpers.concurrency import send_concurrent_requests
 from tests.helpers.signing import signed_headers
-from tests.step_defs.common_steps import (
-    WEBHOOK_SECRET,
-    WEBHOOK_URL,
-    _post_webhook,
-    create_n_payments,
-    check_status_code,
-)
+from tests.step_defs.common_steps import WEBHOOK_SECRET, WEBHOOK_URL, _post_webhook
 
 scenarios("performance.feature")
 
 pytestmark = pytest.mark.slow
-
-
-@pytest.fixture
-def context():
-    return {}
 
 
 @when("I send 100 concurrent authorization webhooks for different payments")
@@ -36,8 +24,6 @@ def send_100_concurrent(client, context):
         headers = signed_headers(secret=WEBHOOK_SECRET, body=body)
         results.append((body, headers, payload))
 
-    # Use threads in batches
-    import threading
     responses = [None] * len(results)
 
     def worker(idx, body, headers, payload):

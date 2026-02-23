@@ -1,31 +1,17 @@
 import json
 
-import pytest
-from pytest_bdd import given, scenarios, then, when
+from pytest_bdd import given, parsers, scenarios, then, when
 
 from app.models import WebhookEvent
 from tests.fixtures.payloads import make_webhook_payload
 from tests.helpers.concurrency import send_concurrent_requests
 from tests.helpers.signing import signed_headers
-from tests.step_defs.common_steps import (
-    WEBHOOK_SECRET,
-    WEBHOOK_URL,
-    _post_webhook,
-    create_payment,
-    check_status_code,
-    check_payment_status,
-    all_responses_2xx,
-)
+from tests.step_defs.common_steps import WEBHOOK_SECRET, WEBHOOK_URL, _post_webhook
 
 scenarios("idempotency.feature")
 
 
-@pytest.fixture
-def context():
-    return {}
-
-
-@when('I send a "payment.authorized" webhook with id "{wid}" for payment "{pid}"')
+@when(parsers.parse('I send a "payment.authorized" webhook with id "{wid}" for payment "{pid}"'))
 def send_with_id(wid, pid, client, context):
     payload = make_webhook_payload(
         event_type="payment.authorized",
@@ -39,7 +25,7 @@ def send_with_id(wid, pid, client, context):
     context["last_wid"] = wid
 
 
-@when('I send the same webhook with id "{wid}" again')
+@when(parsers.parse('I send the same webhook with id "{wid}" again'))
 def send_same_again(wid, client, context):
     payload = make_webhook_payload(
         event_type="payment.authorized",
@@ -57,7 +43,7 @@ def both_200(context):
         assert resp.status_code == 200, f"Got {resp.status_code}: {resp.text}"
 
 
-@then('there should be exactly 1 processed event for webhook "{wid}" in the database')
+@then(parsers.parse('there should be exactly 1 processed event for webhook "{wid}" in the database'))
 def exactly_one_event(wid, db_session):
     db_session.expire_all()
     events = (
@@ -68,7 +54,7 @@ def exactly_one_event(wid, db_session):
     assert len(events) == 1, f"Expected 1 event for {wid!r}, found {len(events)}"
 
 
-@then('event "{wid}" should exist in the database with processing_status "{status}"')
+@then(parsers.parse('event "{wid}" should exist in the database with processing_status "{status}"'))
 def event_exists_with_status(wid, status, db_session):
     db_session.expire_all()
     event = (
@@ -82,7 +68,7 @@ def event_exists_with_status(wid, status, db_session):
     )
 
 
-@when('I send 5 concurrent requests with webhook id "{wid}" for payment "{pid}"')
+@when(parsers.parse('I send 5 concurrent requests with webhook id "{wid}" for payment "{pid}"'))
 def send_concurrent(wid, pid, client, context):
     payload = make_webhook_payload(
         event_type="payment.authorized",
@@ -102,7 +88,7 @@ def send_concurrent(wid, pid, client, context):
     context["response"] = context["responses"][0] if context["responses"] else None
 
 
-@given('I successfully sent a "payment.authorized" webhook with id "{wid}" for payment "{pid}"')
+@given(parsers.parse('I successfully sent a "payment.authorized" webhook with id "{wid}" for payment "{pid}"'))
 def pre_send_webhook(wid, pid, client, context):
     payload = make_webhook_payload(
         event_type="payment.authorized",
@@ -114,7 +100,7 @@ def pre_send_webhook(wid, pid, client, context):
     context["pre_response"] = response
 
 
-@when('I send the same webhook with id "{wid}" again simulating a Yuno retry')
+@when(parsers.parse('I send the same webhook with id "{wid}" again simulating a Yuno retry'))
 def retry_send(wid, client, context):
     payload = make_webhook_payload(
         event_type="payment.authorized",
